@@ -1,5 +1,6 @@
 import AppError from "../utils/error.util.js";
 import User from "../models/user.model.js";
+import cloudinary from "cloudinary";
 
 const cookieOptions = {
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
@@ -35,6 +36,25 @@ const register = async (req, res, next) =>{
     }
 
     //Todo file upload
+
+    if(req.file){
+        try {
+            const result = await cloudinary.v2.uploader.upload(req.file.path, {
+                folder: 'LMS',
+                width: 250,
+                height: 250,
+                gravity: 'faces',
+                crop: 'fill'
+            });
+
+            if(result){
+                
+            }
+
+        } catch (error) {
+            
+        }
+    }
 
     await user.save();
 
