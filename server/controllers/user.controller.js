@@ -1,6 +1,7 @@
 import AppError from "../utils/error.util.js";
 import User from "../models/user.model.js";
 import cloudinary from "cloudinary";
+import fs from "fs/promises";
 
 const cookieOptions = {
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
@@ -9,9 +10,9 @@ const cookieOptions = {
 }
 
 const register = async (req, res, next) =>{
-    const {fullname, email, password} = req.body;
+    const {fullName, email, password} = req.body;
 
-    if(!fullname || !email || !password){
+    if(!fullName || !email || !password){
         return next(new AppError('All fields are required', 400));
     }
 
@@ -21,13 +22,13 @@ const register = async (req, res, next) =>{
         return next(new AppError('Email already exits', 400));
     }
 
-    const user = User.create({
-        fullname,
+    const user = await User.create({
+        fullName,
         email,
         password,
         avatar: {
             public_id: email,
-            secure_url
+            secure_url:'https://res.cloudinary.com/du9jzqlpt/image/upload/v1674647316/avatar_drzgxv.jpg'
         }
     });
 
@@ -35,9 +36,12 @@ const register = async (req, res, next) =>{
         return next(new AppError('User registration failed, please try again', 400))
     }
 
-    //Todo file upload
+    //Todo file upload -> done
+    console.log('File Details > ', JSON.stringify(req.file));
 
     if(req.file){
+
+        
         try {
             const result = await cloudinary.v2.uploader.upload(req.file.path, {
                 folder: 'LMS',
@@ -48,11 +52,15 @@ const register = async (req, res, next) =>{
             });
 
             if(result){
-                
+                user.avatar.public_id = result.public_id;
+                (await user).avatar.secure_url= result.secure_url;
+
+                //remove file from server
+                fs.rm(`uploads/${req.file.filename}`)
             }
 
         } catch (error) {
-            
+            return next (new AppError(error || 'File not uploaded successfully, please try again', 500))
         }
     }
 
