@@ -1,6 +1,6 @@
 import AppError from "../utils/error.util.js";
 import User from "../models/user.model.js";
-import cloudinary from "cloudinary";
+import { v2 as cloudinary } from "cloudinary";
 import fs from "fs/promises";
 import sendEmail from "../utils/sendEmail.js";
 import crypto from "crypto";
@@ -45,7 +45,7 @@ const register = async (req, res, next) =>{
 
         
         try {
-            const result = await cloudinary.v2.uploader.upload(req.file.path, {
+            const result = await cloudinary.uploader.upload(req.file.path, {
                 folder: 'LMS',
                 width: 250,
                 height: 250,
@@ -83,7 +83,7 @@ const register = async (req, res, next) =>{
     
 };
 
-const login = async (req, res) =>{
+const login = async (req, res, next) =>{
     try {
         const {email, password} = req.body;
     
@@ -117,7 +117,7 @@ const login = async (req, res) =>{
 
 };
 
-const logout = (req, res) =>{
+const logout = (req, res, next) =>{
     res.cookie('token', null, {
         secure: true,
         maxAge: 0,
@@ -191,7 +191,7 @@ const forgotPassword = async (req, res, next) => {
 
 }
 
-const resetPassword = async (req, res) => {
+const resetPassword = async (req, res, next) => {
     const {resetToken} = req.params;
 
     const {password} = req.body;
@@ -230,7 +230,7 @@ const resetPassword = async (req, res) => {
     })
 }
 
-const changePassword = async (req, res) => {
+const changePassword = async (req, res,next) => {
     const {oldPassword, newPassword} = req.body;
     const {id} = req.user;
     
@@ -270,27 +270,25 @@ const changePassword = async (req, res) => {
     
 }
 
-const updateUser = async (req, res) => {
-    const { fullName} = req.body;
-    const { id} = req.user.id;
+const updateUser = async (req, res, next) => {
+    const { fullName } = req.body;
+    const userId = req.user.id;
 
-    const user = await User.findById(id);
+    try {
+        const user = await User.findById(userId);
 
-    if(!user){
-        return next(
-            new AppError('User doest not exist', 400)
-        )
-    }
+        if (!user) {
+            return next(new AppError('User does not exist', 400));
+        }
 
-    if(req.fullName) {
-        user.fullName = fullName;
-    }
+        if (fullName) {
+            user.fullName = fullName;
+        }
 
-    if(req.file){
-        await cloudinary.v2.uploader.destroy(user.avatar.public_id);
+        if (req.file) {
+            await cloudinary.uploader.destroy(user.avatar.public_id);
 
-        try {
-            const result = await cloudinary.v2.uploader.upload(req.file.path, {
+            const result = await cloudinary.uploader.upload(req.file.path, {
                 folder: 'LMS',
                 width: 250,
                 height: 250,
@@ -298,26 +296,28 @@ const updateUser = async (req, res) => {
                 crop: 'fill'
             });
 
-            if(result){
-                user.avatar.public_id = result.public_id;
-                (await user).avatar.secure_url= result.secure_url;
-
-                //remove file from server
-                fs.rm(`uploads/${req.file.filename}`)
+            if (!result) {
+                throw new Error('File not uploaded successfully, please try again');
             }
 
-        } catch (error) {
-            return next (new AppError(error || 'File not uploaded successfully, please try again', 500))
-        }        
+            user.avatar.public_id = result.public_id;
+            user.avatar.secure_url = result.secure_url;
+
+            // Remove file from server
+            fs.rm(`uploads/${req.file.filename}`)
+        }
+
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'User details updated successfully!'
+        });
+    } catch (error) {
+        return next(new AppError(error.message || 'Internal server error', 500));
     }
+};
 
-    await user.save();
-
-    res.status(200).json({
-        success: true,
-        message: 'User details updated successfully!'
-    })
-}
 
 export {
     register,
