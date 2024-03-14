@@ -1,4 +1,4 @@
-import { type } from "express/lib/response";
+
 import { model, Schema } from "mongoose";
 
 const courseSchema = new Schema({
