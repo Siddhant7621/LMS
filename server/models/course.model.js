@@ -48,7 +48,7 @@ const courseSchema = new Schema({
         type:Number,
         default: 0,
     },
-    cretedBy:{
+    createdBy:{
         type:String,
         required: [true, 'Course instructor name is required'],
     }
